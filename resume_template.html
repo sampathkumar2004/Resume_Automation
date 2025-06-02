@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume</title>
+  <style>
+    /* General page setup for A4 */
+    body {
+      font-family: 'Calibri', 'Arial', 'Helvetica', sans-serif;
+      margin: 20mm;
+      padding: 0;
+      width: 170mm; /* A4 width (210mm) - 20mm margins */
+      min-height: 257mm; /* A4 height (297mm) - 40mm margins */
+      box-sizing: border-box;
+      font-size: 11pt;
+      line-height: 1.4;
+      color: #333;
+      background-color: #fff;
+    }
+    .container {
+      width: 100%;
+      max-width: 170mm;
+      overflow: hidden; /* Prevent content from spilling out */
+    }
+
+    /* Headings */
+    h1 {
+      font-size: 20pt;
+      font-weight: bold;
+      text-align: center;
+      color: #1a3c6d;
+      margin: 0 0 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    h2 {
+      font-size: 14pt;
+      font-weight: 600;
+      color: #1a3c6d;
+      border-bottom: 2px solid #1a3c6d;
+      padding-bottom: 5px;
+      margin: 20px 0 10px;
+    }
+    h3 {
+      font-size: 12pt;
+      font-weight: 600;
+      color: #2c5282;
+      margin: 10px 0 5px;
+    }
+
+    /* Text and list styling */
+    p, li {
+      margin: 5px 0;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+    ul {
+      list-style-type: disc;
+      margin: 5px 0 10px 20px;
+      padding-left: 10px;
+    }
+
+    /* Section styling */
+    .section {
+      margin-bottom: 20px;
+      page-break-inside: avoid; /* Prevent section breaks across pages */
+    }
+    .contact-info, .education-details, .project-details, .experience-details, .personal-details {
+      margin-left: 10px;
+    }
+    .contact-info .contact-row {
+      font-size: 10pt;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 5px 0;
+    }
+    .contact-info .contact-row span {
+      white-space: nowrap;
+    }
+    .contact-info .contact-row .separator {
+      color: #4a5568;
+    }
+
+    /* Experience styling */
+    .experience-details .experience-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .experience-details .experience-row h3 {
+      margin: 0;
+      flex-grow: 1;
+    }
+    .experience-details .experience-row p {
+      margin: 0;
+      font-size: 10pt;
+      color: #4a5568;
+      white-space: nowrap;
+    }
+
+    /* Table for semester grades */
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 10pt;
+    }
+    .table th, .table td {
+      border: 1px solid #d1d5db;
+      padding: 8px;
+      text-align: left;
+      overflow-wrap: break-word;
+    }
+    .table th {
+      background-color: #edf2f7;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    /* Project and experience descriptions */
+    .project-details p, .experience-details p {
+      font-size: 10pt;
+      color: #4a5568;
+    }
+
+    /* Declaration */
+    .declaration {
+      font-style: italic;
+      font-size: 10pt;
+      margin-top: 20px;
+    }
+    .declaration .signature {
+      text-align: right;
+      margin-top: 15px;
+    }
+    .declaration .signature p {
+      margin: 5px 0;
+    }
+
+    /* Page break and print settings */
+    @page {
+      size: A4;
+      margin: 20mm;
+    }
+    @media print {
+      body {
+        margin: 0;
+        width: 170mm;
+      }
+      .container {
+        width: 170mm;
+      }
+      .section {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>{{ student_info.studentname | default('—') }}</h1>
+    <div class="contact-info">
+      <div class="contact-row">
+        {% if student_info.studentemail %}
+        <span>{{ student_info.studentemail }}</span>
+        {% endif %}
+        {% if student_info.studentemail and (student_info.linkedin or student_info.studentmobilenumber) %}
+        <span class="separator">|</span>
+        {% endif %}
+        {% if student_info.linkedin %}
+        <span>{{ student_info.linkedin }}</span>
+        {% endif %}
+        {% if student_info.linkedin and student_info.studentmobilenumber %}
+        <span class="separator">|</span>
+        {% endif %}
+        {% if student_info.studentmobilenumber %}
+        <span>{{ student_info.studentmobilenumber }}</span>
+        {% endif %}
+      </div>
+      {% if student_info.studentaddress %}
+      <p>{{ student_info.studentaddress }}</p>
+      {% endif %}
+    </div>
+
+    {% if student_info.objective %}
+    <div class="section">
+      <h2>Objective</h2>
+      <p>{{ student_info.objective | default('—') }}</p>
+    </div>
+    {% endif %}
+
+    <div class="section">
+      <h2>Education</h2>
+      {% if student_info.qualification_type in ['Engineering', 'Arts', 'Science', 'Commerce'] %}
+      <div class="education-details">
+        <h3>{{ student_info.program_name | default(student_info.qualification_type) }}</h3>
+        <p>{{ student_info.degreecollege | default('—') }}</p>
+        <p>
+          {% if student_info.degreeyearofpass %}
+          {{ student_info.degreeyearofpass | replace('-', '–') }}
+          {% endif %}
+          {% if student_info.degreeavggrade != 'N/A' %}
+          {% if student_info.degreeyearofpass %}| {% endif %}
+          {{ student_info.degree_grading_system }}: {{ student_info.degreeavggrade }}
+          {% endif %}
+        </p>
+        {% if student_info.degreeinfo %}
+        <table class="table">
+          <tr>
+            <th>Semester</th>
+            <th>{{ student_info.degree_grading_system }}</th>
+          </tr>
+          {% for entry in student_info.degreeinfo %}
+          <tr>
+            <td>Semester {{ loop.index }}</td>
+            <td>{{ entry.grade | default('—') }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if student_info.qualification_type in ['Medicine', 'Law'] %}
+      <div class="education-details">
+        <h3>{{ student_info.program_name | default(student_info.qualification_type) }}</h3>
+        <p>{{ student_info.degreecollege | default('—') }}</p>
+        <p>
+          {% if student_info.degreeyearofpass %}
+          {{ student_info.degreeyearofpass | replace('-', '–') }}
+          {% endif %}
+          {% if student_info.interpercentage %}
+          {% if student_info.degreeyearofpass %}| {% endif %}
+          {{ student_info.degree_grading_system }}: {{ student_info.interpercentage }}
+          {% endif %}
+        </p>
+      </div>
+      {% endif %}
+      {% if student_info.qualification_type in ['Engineering', 'Medicine', 'Law', 'Arts', 'Science', 'Commerce', 'Intermediate'] and (student_info.intercollegename or student_info.interboard or student_info.interpercentage or student_info.interyearofpass) %}
+      <div class="education-details">
+        <h3>Intermediate</h3>
+        <p>
+          {{ student_info.intercollegename | default('—') }}
+          {% if student_info.interboard %}
+          , {{ student_info.interboard }}
+          {% endif %}
+        </p>
+        <p>
+          {% if student_info.interyearofpass %}
+          {{ student_info.interyearofpass | replace('-', '–') }}
+          {% endif %}
+          {% if student_info.interpercentage %}
+          {% if student_info.interyearofpass %}| {% endif %}
+          {{ student_info.inter_grading_system }}: {{ student_info.interpercentage }}
+          {% endif %}
+        </p>
+      </div>
+      {% endif %}
+      {% if student_info.qualification_type in ['Engineering', 'Medicine', 'Law', 'Arts', 'Science', 'Commerce', 'Intermediate', 'SSC'] and (student_info.sscschoolname or student_info.sscboard or student_info.sscgpa or student_info.sscyearofpass) %}
+      <div class="education-details">
+        <h3>SSC</h3>
+        <p>
+          {{ student_info.sscschoolname | default('—') }}
+          {% if student_info.sscboard %}
+          , {{ student_info.sscboard }}
+          {% endif %}
+        </p>
+        <p>
+          {% if student_info.sscyearofpass %}
+          {{ student_info.sscyearofpass | replace('-', '–') }}
+          {% endif %}
+          {% if student_info.sscgpa %}
+          {% if student_info.sscyearofpass %}| {% endif %}
+          {{ student_info.ssc_grading_system }}: {{ student_info.sscgpa }}
+          {% endif %}
+        </p>
+      </div>
+      {% endif %}
+      {% if student_info.qualification_type in ['Diploma', 'Vocational', 'Other'] and student_info.other_qualifications %}
+      <div class="education-details">
+        <h3>{{ student_info.program_name | default(student_info.qualification_type) }}</h3>
+        {% for qual in student_info.other_qualifications %}
+        <div>
+          <p>
+            {{ qual.name | default('—') }}
+            {% if qual.institution %}
+            | {{ qual.institution }}
+            {% endif %}
+          </p>
+          <p>
+            {% if qual.year %}
+            {{ qual.year | replace('-', '–') }}
+            {% endif %}
+            {% if qual.grade %}
+            {% if qual.year %}| {% endif %}
+            {{ qual.grading_system }}: {{ qual.grade }}
+            {% endif %}
+          </p>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    {% if student_info.skillset %}
+    <div class="section">
+      <h2>Skills</h2>
+      <ul>
+        {% for skill in student_info.skillset %}
+        <li>{{ skill | default('—') }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if student_info.language %}
+    <div class="section">
+      <h2>Languages</h2>
+      <p>{{ student_info.language | default('—') }}</p>
+    </div>
+    {% endif %}
+
+    {% if student_info.projectinfo %}
+    <div class="section">
+      <h2>Projects</h2>
+      {% for project in student_info.projectinfo %}
+      <div class="project-details">
+        <h3>{{ project.name | default('—') }}</h3>
+        {% if project.description %}
+        <p>{{ project.description | default('—') }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if student_info.experienceinfo %}
+    <div class="section">
+      <h2>Experience/Internship</h2>
+      {% for experience in student_info.experienceinfo %}
+      <div class="experience-details">
+        <div class="experience-row">
+          <h3>{{ experience.company | default('—') }}</h3>
+          {% if experience.years %}
+          <p>{{ experience.years | replace('-', '–') }} years</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if student_info.certifications %}
+    <div class="section">
+      <h2>Certifications</h2>
+      <ul>
+        {% for cert in student_info.certifications %}
+        <li>{{ cert | default('—') }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if student_info.dob or student_info.fathername or student_info.mothername %}
+    <div class="section">
+      <h2>Personal Details</h2>
+      <div class="personal-details">
+        {% if student_info.dob %}
+        <p>Date of Birth: {{ student_info.dob | default('—') }}</p>
+        {% endif %}
+        {% if student_info.fathername %}
+        <p>Father’s Name: {{ student_info.fathername | default('—') }} ({{ student_info.fatheroccupation | default('—') }})</p>
+        {% endif %}
+        {% if student_info.mothername %}
+        <p>Mother’s Name: {{ student_info.mothername | default('—') }} ({{ student_info.motheroccupation | default('—') }})</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="section declaration">
+      <h2>Declaration</h2>
+      <p>I hereby declare that all the information provided above is true to the best of my knowledge and belief.</p>
+      <div class="signature">
+        <p><strong>{{ student_info.studentname | default('—') }}</strong></p>
+        <p>{{ student_info.city | default('—') }}</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

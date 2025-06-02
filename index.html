@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { background-color: #f3f4f6; }
+    .form-section { margin-bottom: 1.5rem; }
+    .form-section h2 { font-size: 1.5rem; font-weight: 600; color: #1e40af; }
+    .toast { transition: opacity 0.3s; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const ResumeForm = () => {
+      const [formData, setFormData] = useState({
+        studentname: '',
+        qualification_type: '',
+        program_name: '',
+        studentemail: '',
+        studentmobilenumber: '',
+        studentaddress: '',
+        city: '',
+        dob: '',
+        fathername: '',
+        fatheroccupation: '',
+        mothername: '',
+        motheroccupation: '',
+        degreeinfo: [{ grade: '' }],
+        degreecollege: '',
+        degreeyearofpass: '',
+        degree_grading_system: 'CGPA',
+        intercollegename: '',
+        interboard: '',
+        interpercentage: '',
+        interyearofpass: '',
+        inter_grading_system: 'Percentage',
+        sscschoolname: '',
+        sscboard: '',
+        sscgpa: '',
+        sscyearofpass: '',
+        ssc_grading_system: 'CGPA',
+        other_qualifications: [{ name: '', institution: '', grade: '', year: '', grading_system: 'Percentage' }],
+        skillset: [''],
+        language: [""],
+        projectinfo: [{ name: '', description: '' }],
+        experienceinfo: [{ company: '', years: '' }],
+        coursecertification: [{ newCertification: '' }],
+        linkedin: '', // New field for LinkedIn profile
+      });
+      const [errors, setErrors] = useState({});
+      const [message, setMessage] = useState('');
+      const [isLoading, setIsLoading] = useState(false);
+
+      const validateForm = () => {
+        const newErrors = {};
+        if (!formData.studentname.trim()) newErrors.studentname = 'Name is required';
+        if (!formData.qualification_type) newErrors.qualification_type = 'Please select your qualification type';
+        if (formData.studentemail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.studentemail)) {
+          newErrors.studentemail = 'Invalid email format';
+        }
+        if (formData.studentmobilenumber && !/^\+?\d{10,15}$/.test(formData.studentmobilenumber)) {
+          newErrors.studentmobilenumber = 'Invalid phone number';
+        }
+        // Validate grades based on grading system
+        if (['Engineering', 'Arts', 'Science', 'Commerce'].includes(formData.qualification_type) && formData.degreeinfo) {
+          formData.degreeinfo.forEach((entry, index) => {
+            if (entry.grade && !validateGrade(entry.grade, formData.degree_grading_system)) {
+              newErrors[`degreeinfo_${index}_grade`] = `Invalid ${formData.degree_grading_system} format`;
+            }
+          });
+        }
+        if (formData.qualification_type !== 'SSC' && formData.interpercentage && !validateGrade(formData.interpercentage, formData.inter_grading_system)) {
+          newErrors.interpercentage = `Invalid ${formData.inter_grading_system} format`;
+        }
+        if (formData.sscgpa && !validateGrade(formData.sscgpa, formData.ssc_grading_system)) {
+          newErrors.sscgpa = `Invalid ${formData.ssc_grading_system} format`;
+        }
+        if (formData.qualification_type === 'Other' && formData.other_qualifications) {
+          formData.other_qualifications.forEach((qual, index) => {
+            if (qual.grade && !validateGrade(qual.grade, qual.grading_system)) {
+              newErrors[`other_qualifications_${index}_grade`] = `Invalid ${qual.grading_system} format`;
+            }
+          });
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+      };
+
+      const validateGrade = (grade, system) => {
+        if (!grade) return true; // Optional field
+        if (system === 'Percentage') return /^\d{1,3}(\.\d{1,2})?$/.test(grade) && parseFloat(grade) <= 100;
+        if (system === 'CGPA') return /^\d(\.\d{1,2})?$/.test(grade) && parseFloat(grade) <= 10;
+        if (system === 'Marks') return /^\d{1,4}$/.test(grade) && parseInt(grade) <= 1000;
+        return true;
+      };
+
+      const handleInputChange = (e, field, index = null, subfield = null) => {
+        setErrors({ ...errors, [field]: null, [`${field}_${index}_${subfield}`]: null });
+        if (index !== null && subfield) {
+          const updatedArray = [...formData[field]];
+          updatedArray[index][subfield] = e.target.value;
+          setFormData({ ...formData, [field]: updatedArray });
+        } else if (index !== null) {
+          const updatedArray = [...formData[field]];
+          updatedArray[index] = e.target.value;
+          setFormData({ ...formData, [field]: updatedArray });
+        } else {
+          setFormData({ ...formData, [field]: e.target.value });
+        }
+      };
+
+      const addField = (field) => {
+        if (field === 'degreeinfo') {
+          setFormData({ ...formData, degreeinfo: [...formData.degreeinfo, { grade: '' }] });
+        } else if (field === 'skillset' || field === 'language') {
+          setFormData({ ...formData, [field]: [...formData[field], ''] });
+        } else if (field === 'projectinfo') {
+          setFormData({ ...formData, projectinfo: [...formData.projectinfo, { name: '', description: '' }] });
+        } else if (field === 'experienceinfo') {
+          setFormData({ ...formData, experienceinfo: [...formData.experienceinfo, { company: '', years: '' }] });
+        } else if (field === 'coursecertification') {
+          setFormData({ ...formData, coursecertification: [...formData.coursecertification, { newCertification: '' }] });
+        } else if (field === 'other_qualifications') {
+          setFormData({ ...formData, other_qualifications: [...formData.other_qualifications, { name: '', institution: '', grade: '', year: '', grading_system: 'Percentage' }] });
+        }
+      };
+
+      const removeField = (field, index) => {
+        if (formData[field].length > 1) {
+          setFormData({ ...formData, [field]: formData[field].filter((_, i) => i !== index) });
+        }
+      };
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!validateForm()) {
+          setMessage('Please fix the errors in the form.');
+          return;
+        }
+
+        setIsLoading(true);
+        setMessage('');
+        console.log('Form Data:', formData);
+
+        try {
+          const response = await axios.post('http://127.0.0.1:8000/gr', [formData], {
+            responseType: 'blob',
+          });
+          const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', `Resume_${formData.studentname.replace(/\s+/g, '_')}.pdf`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setMessage('Resume generated successfully!');
+        } catch (error) {
+          setMessage('Error generating resume. Please try again.');
+          console.error(error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      return (
+        <div className="max-w-4xl mx-auto p-6 bg-white shadow-lg rounded-lg mt-10">
+          <h1 className="text-3xl font-bold text-center text-blue-800 mb-6">Resume Generator</h1>
+          <div className={message ? `toast p-4 mb-4 rounded ${message.includes('Error') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}` : ''}>
+            {message}
+          </div>
+          <div className="form-section">
+            <h2>Personal Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Name *</label>
+                <input
+                  type="text"
+                  value={formData.studentname}
+                  onChange={(e) => handleInputChange(e, 'studentname')}
+                  className={`mt-1 p-2 w-full border rounded ${errors.studentname ? 'border-red-500' : 'border-gray-300'}`}
+                />
+                {errors.studentname && <p className="text-red-500 text-sm">{errors.studentname}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Qualification Type *</label>
+                <select
+                  value={formData.qualification_type}
+                  onChange={(e) => handleInputChange(e, 'qualification_type')}
+                  className={`mt-1 p-2 w-full border rounded ${errors.qualification_type ? 'border-red-500' : 'border-gray-300'}`}
+                >
+                  <option value="">Select Qualification Type</option>
+                  <option value="SSC">SSC (10th Grade)</option>
+                  <option value="Intermediate">Intermediate (12th Grade)</option>
+                  <option value="Engineering">Engineering</option>
+                  <option value="Medicine">Medicine</option>
+                  <option value="Law">Law</option>
+                  <option value="Arts">Arts</option>
+                  <option value="Science">Science</option>
+                  <option value="Commerce">Commerce</option>
+                  <option value="Diploma">Diploma</option>
+                  <option value="Vocational">Vocational</option>
+                  <option value="Other">Other</option>
+                </select>
+                {errors.qualification_type && <p className="text-red-500 text-sm">{errors.qualification_type}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Program Name</label>
+                <input
+                  type="text"
+                  value={formData.program_name}
+                  onChange={(e) => handleInputChange(e, 'program_name')}
+                  className="mt-1 p-2 w-full border rounded border-gray-300"
+                  placeholder="e.g., MBBS, B.Tech, LLB"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <input
+                  type="email"
+                  value={formData.studentemail}
+                  onChange={(e) => handleInputChange(e, 'studentemail')}
+                  className={`mt-1 p-2 w-full border rounded ${errors.studentemail ? 'border-red-500' : 'border-gray-300'}`}
+                />
+                {errors.studentemail && <p className="text-red-500 text-sm">{errors.studentemail}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
+                <input
+                  type="text"
+                  value={formData.studentmobilenumber}
+                  onChange={(e) => handleInputChange(e, 'studentmobilenumber')}
+                  className={`mt-1 p-2 w-full border rounded ${errors.studentmobilenumber ? 'border-red-500' : 'border-gray-300'}`}
+                />
+                {errors.studentmobilenumber && <p className="text-red-500 text-sm">{errors.studentmobilenumber}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">LinkedIn Profile</label>
+                <input
+                  type="text"
+                  value={formData.linkedin}
+                  onChange={(e) => handleInputChange(e, 'linkedin')}
+                  className="mt-1 p-2 w-full border rounded border-gray-300"
+                  placeholder="e.g., linkedin.com/in/yourprofile"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Address</label>
+                <input
+                  type="text"
+                  value={formData.studentaddress}
+                  onChange={(e) => handleInputChange(e, 'studentaddress')}
+                  className="mt-1 p-2 w-full border rounded border-gray-300"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">City</label>
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => handleInputChange(e, 'city')}
+                  className="mt-1 p-2 w-full border rounded border-gray-300"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                <input
+                  type="date"
+                  value={formData.dob}
+                  onChange={(e) => handleInputChange(e, 'dob')}
+                  className="mt-1 p-2 w-full border rounded border-gray-300"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Father's Name</label>
+                <input
+                  type="text"
+                  value={formData.fathername}
+                  onChange={(e) => handleInputChange(e, 'fathername')}
+                  className="mt-1 p-2 w-full border rounded border-gray-300"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Father's Occupation</label>
+                <input
+                  type="text"
+                  value={formData.fatheroccupation}
+                  onChange={(e) => handleInputChange(e, 'fatheroccupation')}
+                  className="mt-1 p-2 w-full border rounded border-gray-300"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Mother's Name</label>
+                <input
+                  type="text"
+                  value={formData.mothername}
+                  onChange={(e) => handleInputChange(e, 'mothername')}
+                  className="mt-1 p-2 w-full border rounded border-gray-300"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Mother's Occupation</label>
+                <input
+                  type="text"
+                  value={formData.motheroccupation}
+                  onChange={(e) => handleInputChange(e, 'motheroccupation')}
+                  className="mt-1 p-2 w-full border rounded border-gray-300"
+                />
+              </div>
+            </div>
+          </div>
+
+          {formData.qualification_type && (
+            <div className="form-section">
+              <h2>Education</h2>
+              {['Engineering', 'Arts', 'Science', 'Commerce'].includes(formData.qualification_type) && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-medium text-gray-700">{formData.qualification_type}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Institution</label>
+                      <input
+                        type="text"
+                        value={formData.degreecollege}
+                        onChange={(e) => handleInputChange(e, 'degreecollege')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Year of Pass</label>
+                      <input
+                        type="text"
+                        value={formData.degreeyearofpass}
+                        onChange={(e) => handleInputChange(e, 'degreeyearofpass')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Grading System</label>
+                      <select
+                        value={formData.degree_grading_system}
+                        onChange={(e) => handleInputChange(e, 'degree_grading_system')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      >
+                        <option value="CGPA">CGPA</option>
+                        <option value="Percentage">Percentage</option>
+                        <option value="Marks">Marks</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-700">Semester Details</h4>
+                    {formData.degreeinfo.map((entry, index) => (
+                      <div key={index} className="flex gap-4 mt-2">
+                        <input
+                          type="text"
+                          placeholder={formData.degree_grading_system}
+                          value={entry.grade}
+                          onChange={(e) => handleInputChange(e, 'degreeinfo', index, 'grade')}
+                          className={`p-2 w-1/2 border rounded ${errors[`degreeinfo_${index}_grade`] ? 'border-red-500' : 'border-gray-300'}`}
+                        />
+                        {formData.degreeinfo.length > 1 && (
+                          <button
+                            onClick={() => removeField('degreeinfo', index)}
+                            className="p-2 text-red-600 hover:text-red-800"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => addField('degreeinfo')}
+                      className="mt-2 text-blue-600 hover:text-blue-800"
+                    >
+                      + Add Semester
+                    </button>
+                  </div>
+                </div>
+              )}
+              {['Medicine', 'Law'].includes(formData.qualification_type) && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-medium text-gray-700">{formData.qualification_type}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Institution</label>
+                      <input
+                        type="text"
+                        value={formData.degreecollege}
+                        onChange={(e) => handleInputChange(e, 'degreecollege')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Year of Pass</label>
+                      <input
+                        type="text"
+                        value={formData.degreeyearofpass}
+                        onChange={(e) => handleInputChange(e, 'degreeyearofpass')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Grade</label>
+                      <input
+                        type="text"
+                        value={formData.interpercentage}
+                        onChange={(e) => handleInputChange(e, 'interpercentage')}
+                        className={`mt-1 p-2 w-full border rounded ${errors.interpercentage ? 'border-red-500' : 'border-gray-300'}`}
+                        placeholder={formData.degree_grading_system}
+                      />
+                      {errors.interpercentage && <p className="text-red-500 text-sm">{errors.interpercentage}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Grading System</label>
+                      <select
+                        value={formData.degree_grading_system}
+                        onChange={(e) => handleInputChange(e, 'degree_grading_system')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      >
+                        <option value="Percentage">Percentage</option>
+                        <option value="CGPA">CGPA</option>
+                        <option value="Marks">Marks</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {['Engineering', 'Medicine', 'Law', 'Arts', 'Science', 'Commerce', 'Intermediate'].includes(formData.qualification_type) && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-medium text-gray-700">Intermediate</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">College</label>
+                      <input
+                        type="text"
+                        value={formData.intercollegename}
+                        onChange={(e) => handleInputChange(e, 'intercollegename')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Board</label>
+                      <input
+                        type="text"
+                        value={formData.interboard}
+                        onChange={(e) => handleInputChange(e, 'interboard')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Grade</label>
+                      <input
+                        type="text"
+                        value={formData.interpercentage}
+                        onChange={(e) => handleInputChange(e, 'interpercentage')}
+                        className={`mt-1 p-2 w-full border rounded ${errors.interpercentage ? 'border-red-500' : 'border-gray-300'}`}
+                        placeholder={formData.inter_grading_system}
+                      />
+                      {errors.interpercentage && <p className="text-red-500 text-sm">{errors.interpercentage}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Year of Pass</label>
+                      <input
+                        type="text"
+                        value={formData.interyearofpass}
+                        onChange={(e) => handleInputChange(e, 'interyearofpass')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Grading System</label>
+                      <select
+                        value={formData.inter_grading_system}
+                        onChange={(e) => handleInputChange(e, 'inter_grading_system')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      >
+                        <option value="Percentage">Percentage</option>
+                        <option value="CGPA">CGPA</option>
+                        <option value="Marks">Marks</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {['Engineering', 'Medicine', 'Law', 'Arts', 'Science', 'Commerce', 'Intermediate', 'SSC'].includes(formData.qualification_type) && (
+                <div>
+                  <h3 className="text-lg font-medium text-gray-700">SSC</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">School</label>
+                      <input
+                        type="text"
+                        value={formData.sscschoolname}
+                        onChange={(e) => handleInputChange(e, 'sscschoolname')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Board</label>
+                      <input
+                        type="text"
+                        value={formData.sscboard}
+                        onChange={(e) => handleInputChange(e, 'sscboard')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Grade</label>
+                      <input
+                        type="text"
+                        value={formData.sscgpa}
+                        onChange={(e) => handleInputChange(e, 'sscgpa')}
+                        className={`mt-1 p-2 w-full border rounded ${errors.sscgpa ? 'border-red-500' : 'border-gray-300'}`}
+                        placeholder={formData.ssc_grading_system}
+                      />
+                      {errors.sscgpa && <p className="text-red-500 text-sm">{errors.sscgpa}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Year of Pass</label>
+                      <input
+                        type="text"
+                        value={formData.sscyearofpass}
+                        onChange={(e) => handleInputChange(e, 'sscyearofpass')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Grading System</label>
+                      <select
+                        value={formData.ssc_grading_system}
+                        onChange={(e) => handleInputChange(e, 'ssc_grading_system')}
+                        className="mt-1 p-2 w-full border rounded border-gray-300"
+                      >
+                        <option value="CGPA">CGPA</option>
+                        <option value="Percentage">Percentage</option>
+                        <option value="Marks">Marks</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {['Diploma', 'Vocational', 'Other'].includes(formData.qualification_type) && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-medium text-gray-700">{formData.qualification_type}</h3>
+                  {formData.other_qualifications.map((qual, index) => (
+                    <div key={index} className="mt-2">
+                      <input
+                        type="text"
+                        placeholder="Qualification Name"
+                        value={qual.name}
+                        onChange={(e) => handleInputChange(e, 'other_qualifications', index, 'name')}
+                        className="p-2 w-full border rounded border-gray-300 mb-2"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Institution"
+                        value={qual.institution}
+                        onChange={(e) => handleInputChange(e, 'other_qualifications', index, 'institution')}
+                        className="p-2 w-full border rounded border-gray-300 mb-2"
+                      />
+                      <input
+                        type="text"
+                        placeholder={qual.grading_system}
+                        value={qual.grade}
+                        onChange={(e) => handleInputChange(e, 'other_qualifications', index, 'grade')}
+                        className={`p-2 w-full border rounded ${errors[`other_qualifications_${index}_grade`] ? 'border-red-500' : 'border-gray-300'}`}
+                      />
+                      {errors[`other_qualifications_${index}_grade`] && <p className="text-red-500 text-sm">{errors[`other_qualifications_${index}_grade`]}</p>}
+                      <input
+                        type="text"
+                        placeholder="Year"
+                        value={qual.year}
+                        onChange={(e) => handleInputChange(e, 'other_qualifications', index, 'year')}
+                        className="p-2 w-full border rounded border-gray-300 mb-2"
+                      />
+                      <select
+                        value={qual.grading_system}
+                        onChange={(e) => handleInputChange(e, 'other_qualifications', index, 'grading_system')}
+                        className="p-2 w-full border rounded border-gray-300"
+                      >
+                        <option value="Percentage">Percentage</option>
+                        <option value="CGPA">CGPA</option>
+                        <option value="Marks">Marks</option>
+                      </select>
+                      {formData.other_qualifications.length > 1 && (
+                        <button
+                          onClick={() => removeField('other_qualifications', index)}
+                          className="mt-2 text-red-600 hover:text-red-800"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => addField('other_qualifications')}
+                    className="mt-2 text-blue-600 hover:text-blue-800"
+                  >
+                    + Add Qualification
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="form-section">
+            <h2>Skills</h2>
+            {formData.skillset.map((skill, index) => (
+              <div key={index} className="flex gap-4 mt-2">
+                <input
+                  type="text"
+                  placeholder="Skill"
+                  value={skill}
+                  onChange={(e) => handleInputChange(e, 'skillset', index)}
+                  className="p-2 w-3/4 border rounded border-gray-300"
+                />
+                {formData.skillset.length > 1 && (
+                  <button
+                    onClick={() => removeField('skillset', index)}
+                    className="p-2 text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              onClick={() => addField('skillset')}
+              className="mt-2 text-blue-600 hover:text-blue-800"
+            >
+              + Add Skill
+            </button>
+          </div>
+
+          <div className="form-section">
+            <h2>Languages</h2>
+            {formData.language.map((lang, index) => (
+              <div key={index} className="flex gap-4 mt-2">
+                <input
+                  type="text"
+                  placeholder="Language"
+                  value={lang}
+                  onChange={(e) => handleInputChange(e, 'language', index)}
+                  className="p-2 w-3/4 border rounded border-gray-300"
+                />
+                {formData.language.length > 1 && (
+                  <button
+                    onClick={() => removeField('language', index)}
+                    className="p-2 text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              onClick={() => addField('language')}
+              className="mt-2 text-blue-600 hover:text-blue-800"
+            >
+              + Add Language
+            </button>
+          </div>
+
+          <div className="form-section">
+            <h2>Projects</h2>
+            {formData.projectinfo.map((project, index) => (
+              <div key={index} className="mt-2">
+                <input
+                  type="text"
+                  placeholder="Project Name"
+                  value={project.name}
+                  onChange={(e) => handleInputChange(e, 'projectinfo', index, 'name')}
+                  className="p-2 w-full border rounded border-gray-300 mb-2"
+                />
+                <textarea
+                  placeholder="Description"
+                  value={project.description}
+                  onChange={(e) => handleInputChange(e, 'projectinfo', index, 'description')}
+                  className="p-2 w-full border rounded border-gray-300"
+                />
+                {formData.projectinfo.length > 1 && (
+                  <button
+                    onClick={() => removeField('projectinfo', index)}
+                    className="mt-2 text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              onClick={() => addField('projectinfo')}
+              className="mt-2 text-blue-600 hover:text-blue-800"
+            >
+              + Add Project
+            </button>
+          </div>
+
+          <div className="form-section">
+            <h2>Experience/Internships</h2>
+            {formData.experienceinfo.map((exp, index) => (
+              <div key={index} className="flex gap-4 mt-2">
+                <input
+                  type="text"
+                  placeholder="Company"
+                  value={exp.company}
+                  onChange={(e) => handleInputChange(e, 'experienceinfo', index, 'company')}
+                  className="p-2 w-1/2 border rounded border-gray-300"
+                />
+                <input
+                  type="text"
+                  placeholder="Years"
+                  value={exp.years}
+                  onChange={(e) => handleInputChange(e, 'experienceinfo', index, 'years')}
+                  className="p-2 w-1/4 border rounded border-gray-300"
+                />
+                {formData.experienceinfo.length > 1 && (
+                  <button
+                    onClick={() => removeField('experienceinfo', index)}
+                    className="p-2 text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              onClick={() => addField('experienceinfo')}
+              className="mt-2 text-blue-600 hover:text-blue-800"
+            >
+              + Add Experience
+            </button>
+          </div>
+
+          <div className="form-section">
+            <h2>Certifications</h2>
+            {formData.coursecertification.map((cert, index) => (
+              <div key={index} className="flex gap-4 mt-2">
+                <input
+                  type="text"
+                  placeholder="Certification"
+                  value={cert.newCertification}
+                  onChange={(e) => handleInputChange(e, 'coursecertification', index, 'newCertification')}
+                  className="p-2 w-3/4 border rounded border-gray-300"
+                />
+                {formData.coursecertification.length > 1 && (
+                  <button
+                    onClick={() => removeField('coursecertification', index)}
+                    className="p-2 text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              onClick={() => addField('coursecertification')}
+              className="mt-2 text-blue-600 hover:text-blue-800"
+            >
+              + Add Certification
+            </button>
+          </div>
+
+          <button
+            onClick={handleSubmit}
+            disabled={isLoading}
+            className={`w-full p-3 mt-6 text-white bg-blue-600 rounded hover:bg-blue-700 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isLoading ? 'Generating...' : 'Generate Resume'}
+          </button>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<ResumeForm />, document.getElementById('root'));
+  </script>
+</body>
+</html>
