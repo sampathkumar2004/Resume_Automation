@@ -1,0 +1,6 @@
+fastapi==0.112.4
+uvicorn==0.32.0
+jinja2==3.1.4
+pydantic==2.9.2
+playwright==1.48.0
+python-multipart==0.0.12
